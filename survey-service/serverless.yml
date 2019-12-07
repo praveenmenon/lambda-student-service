@@ -1,0 +1,94 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: survey
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-split-stacks
+  - serverless-offline-scheduler
+
+custom:
+  serverless-offline:
+    port: 6000
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  stage: dev
+  region: us-east-1
+  environment:
+    CANDIDATE_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+
+# you can add statements to the Lambda function's IAM Role here
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource: "*"
+
+resources:
+  Resources:
+    CandidatesDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: "SurveyId"
+            AttributeType: "S"   
+        KeySchema:
+          -
+            AttributeName: "SurveyId"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: "NEW_AND_OLD_IMAGES"
+        TableName: ${self:provider.environment.CANDIDATE_TABLE}
+
+functions:
+  surveySubmission:
+    handler: api/survey.submit
+    memorySize: 128
+    description: Submit a survey form from student
+    events:
+     - http:
+         path: survey
+         method: post
+         cors:
+            origin: '*' # <-- Specify allowed origin
+            allowCredentials: false
+
+  listSurveys:
+    handler: api/survey.list
+    memorySize: 128
+    description: List all Surveys
+    events:
+     - http:
+         path: surveys
+         method: get
+         cors:
+            origin: '*' # <-- Specify allowed origin
+            headers: # <-- Specify allowed headers
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: false
